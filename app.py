@@ -7,224 +7,111 @@ from datetime import datetime, time, timedelta
 # Page config
 # -------------------------------------------------
 st.set_page_config(
-    page_title="Hardloop Kledingadvies",
+    page_title="Hardloop kledingadvies",
     page_icon="🏃‍♂️",
     layout="centered"
 )
 
 # -------------------------------------------------
-# Custom CSS
+# THEME-AWARE CSS (dark/light safe)
 # -------------------------------------------------
-st.markdown(
-    """
-    <style>
-    :root {
-        --card-bg-light: #ffffff;
-        --card-bg-dark: #1e1e1e;
-        --text-light: #1f1f1f;
-        --text-dark: #e6e6e6;
-        --muted-light: #666666;
-        --muted-dark: #aaaaaa;
-        --pill-light: #f0f2f6;
-        --pill-dark: #2a2a2a;
-    }
+st.markdown("""
+<style>
+:root {
+    --card-dark: #1e1e1e;
+    --card-light: #ffffff;
+    --text-dark: #e6e6e6;
+    --text-light: #1f1f1f;
+    --muted-dark: #aaaaaa;
+    --muted-light: #666666;
+}
 
-    @media (prefers-color-scheme: dark) {
-        .card {
-            background-color: var(--card-bg-dark);
-            color: var(--text-dark);
-        }
-        .score-sub {
-            color: var(--muted-dark);
-        }
-        .pill {
-            background: var(--pill-dark);
-            color: var(--text-dark);
-        }
-    }
+@media (prefers-color-scheme: dark) {
+    .card { background: var(--card-dark); color: var(--text-dark); }
+    .meta { color: var(--muted-dark); }
+}
+@media (prefers-color-scheme: light) {
+    .card { background: var(--card-light); color: var(--text-light); }
+    .meta { color: var(--muted-light); }
+}
 
-    @media (prefers-color-scheme: light) {
-        .card {
-            background-color: var(--card-bg-light);
-            color: var(--text-light);
-        }
-        .score-sub {
-            color: var(--muted-light);
-        }
-        .pill {
-            background: var(--pill-light);
-            color: var(--text-light);
-        }
-    }
+.card {
+    border-radius: 18px;
+    padding: 1.6rem 1.8rem;
+    margin-bottom: 1.6rem;
+    box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
 
-    .card {
-        border-radius: 14px;
-        padding: 1.4rem 1.6rem;
-        margin-bottom: 1.4rem;
-        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
-    }
+.hero {
+    text-align: center;
+    padding: 2.2rem;
+}
 
-    .score {
-        font-size: 64px;
-        font-weight: 700;
-        text-align: center;
-        margin: 0;
-    }
+.score {
+    font-size: 72px;
+    font-weight: 800;
+}
 
-    .score-sub {
-        text-align: center;
-        margin-top: -8px;
-        font-size: 0.95rem;
-    }
+.meta {
+    font-size: 0.95rem;
+    margin-top: -6px;
+}
 
-    .section-title {
-        font-size: 1.2rem;
-        font-weight: 600;
-        margin-bottom: 0.6rem;
-    }
+.divider {
+    height: 1px;
+    margin: 1.6rem 0;
+    background: linear-gradient(
+        to right,
+        transparent,
+        rgba(255,255,255,0.18),
+        transparent
+    );
+}
 
-    .pill {
-        display: inline-block;
-        padding: 0.35rem 0.75rem;
-        border-radius: 999px;
-        margin-right: 0.4rem;
-        margin-bottom: 0.4rem;
-        font-size: 0.85rem;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+.section-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+}
 
+.advice-item {
+    padding: 0.7rem 0.9rem;
+    border-radius: 14px;
+    background: rgba(255,255,255,0.06);
+    margin-bottom: 0.6rem;
+}
+</style>
+""", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # Helpers: emoji + betekenis
 # -------------------------------------------------
 def weer_emoji(code, nacht=False):
-    if code == 0:
-        return "🌙" if nacht else "☀️"
-    if code == 1:
-        return "🌙☁️" if nacht else "🌤️"
-    if code == 2:
-        return "☁️🌙" if nacht else "⛅"
-    if code == 3:
-        return "☁️"
-    if code in [45, 48]:
-        return "🌫️"
-    if code in [51, 53]:
-        return "🌦️"
-    if code in [55, 61]:
-        return "🌧️"
-    if code in [63]:
-        return "🌧️🌧️"
-    if code in [65]:
-        return "🌧️⛈️"
-    if code in [71, 73, 75]:
-        return "❄️"
-    if code in [80, 81]:
-        return "🌦️🌬️"
-    if code in [82, 95]:
-        return "⛈️"
+    if code == 0: return "🌙" if nacht else "☀️"
+    if code == 1: return "🌙☁️" if nacht else "🌤️"
+    if code == 2: return "☁️🌙" if nacht else "⛅"
+    if code == 3: return "☁️"
+    if code in [45,48]: return "🌫️"
+    if code in [51,53]: return "🌦️"
+    if code in [55,61]: return "🌧️"
+    if code == 63: return "🌧️🌧️"
+    if code == 65: return "🌧️⛈️"
+    if code in [71,73,75]: return "❄️"
+    if code in [80,81]: return "🌦️🌬️"
+    if code in [82,95]: return "⛈️"
     return "❔"
 
 def weer_betekenis(code):
     mapping = {
-        0: "Helder",
-        1: "Overwegend helder",
-        2: "Licht bewolkt",
-        3: "Bewolkt",
-        45: "Mist",
-        48: "Mist",
-        51: "Motregen",
-        53: "Motregen",
-        55: "Zware motregen",
-        61: "Lichte regen",
-        63: "Matige regen",
-        65: "Zware regen",
-        71: "Sneeuw",
-        73: "Sneeuw",
-        75: "Sneeuw",
-        80: "Regenbuien",
-        81: "Regenbuien",
-        82: "Zware buien",
-        95: "Onweer"
+        0:"Helder",1:"Overwegend helder",2:"Licht bewolkt",3:"Bewolkt",
+        45:"Mist",48:"Mist",
+        51:"Motregen",53:"Motregen",55:"Zware motregen",
+        61:"Lichte regen",63:"Matige regen",65:"Zware regen",
+        71:"Sneeuw",73:"Sneeuw",75:"Sneeuw",
+        80:"Regenbuien",81:"Regenbuien",82:"Zware buien",
+        95:"Onweer"
     }
-    return mapping.get(code, "Onbekend")
-
-# -------------------------------------------------
-# Header
-# -------------------------------------------------
-st.title("🏃‍♂️ Hardloop kledingadvies")
-st.caption("Slimme kledingkeuze op basis van weer en looptijd")
-
-# -------------------------------------------------
-# Locatie & run instellingen
-# -------------------------------------------------
-with st.container():
-    st.markdown("<div class='card'>", unsafe_allow_html=True)
-    st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
-
-    plaats = st.text_input("Stad / plaats", value="Lelystad")
-
-    col1, col2 = st.columns(2)
-    with col1:
-        starttijd = st.time_input("Starttijd", value=time(18, 0))
-    with col2:
-        duur_min = st.slider("Duur (min)", 10, 180, 60, step=5)
-
-    st.markdown("</div>", unsafe_allow_html=True)
-
-if not plaats:
-    st.stop()
-
-# -------------------------------------------------
-# Data ophalen
-# -------------------------------------------------
-geo = requests.get(
-    "https://geocoding-api.open-meteo.com/v1/search",
-    params={"name": plaats, "count": 1, "language": "nl", "format": "json"},
-    timeout=10
-).json()
-
-loc = geo["results"][0]
-lat, lon = loc["latitude"], loc["longitude"]
-
-today = datetime.now().date()
-start_dt = datetime.combine(today, starttijd)
-eind_dt = start_dt + timedelta(minutes=duur_min)
-mid_dt = start_dt + (eind_dt - start_dt) / 2
-
-weather = requests.get(
-    "https://api.open-meteo.com/v1/forecast",
-    params={
-        "latitude": lat,
-        "longitude": lon,
-        "hourly": "temperature_2m,apparent_temperature,precipitation,weathercode,wind_speed_10m",
-        "timezone": "auto"
-    },
-    timeout=10
-).json()
-
-hourly = weather["hourly"]
-times = [datetime.fromisoformat(t) for t in hourly["time"]]
-
-df = pd.DataFrame({
-    "tijd": times,
-    "uur": [t.strftime("%H:%M") for t in times],
-    "temperatuur": hourly["temperature_2m"],
-    "gevoel": hourly["apparent_temperature"],
-    "neerslag": hourly["precipitation"],
-    "wind": hourly["wind_speed_10m"],
-    "weer_code": hourly["weathercode"]
-})
-
-now = datetime.now().replace(minute=0, second=0)
-df = df[(df["tijd"].dt.date == today) & (df["tijd"] >= now)].copy()
-
-# -------------------------------------------------
-# Score + midden run
-# -------------------------------------------------
-mid_row = df.iloc[(df["tijd"] - mid_dt).abs().argsort().iloc[0]]
+    return mapping.get(code,"Onbekend")
 
 def score_calc(feels, rain, wind):
     s = 10
@@ -237,18 +124,89 @@ def score_calc(feels, rain, wind):
     elif wind > 15: s -= 1
     return max(1, min(10, s))
 
-score = score_calc(mid_row["gevoel"], mid_row["neerslag"], mid_row["wind"])
-kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
+# -------------------------------------------------
+# Header
+# -------------------------------------------------
+st.title("🏃‍♂️ Hardloop kledingadvies")
+st.caption("Slimme kledingkeuze op basis van weer en looptijd")
 
 # -------------------------------------------------
-# Score card
+# Locatie & run
 # -------------------------------------------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
+
+plaats = st.text_input("Stad / plaats", value="Lelystad")
+col1, col2 = st.columns(2)
+with col1:
+    starttijd = st.time_input("Starttijd", value=time(18,0))
+with col2:
+    duur_min = st.slider("Duur (min)", 10, 180, 60, step=5)
+
+st.markdown("</div>", unsafe_allow_html=True)
+
+if not plaats:
+    st.stop()
+
+# -------------------------------------------------
+# Data ophalen
+# -------------------------------------------------
+geo = requests.get(
+    "https://geocoding-api.open-meteo.com/v1/search",
+    params={"name":plaats,"count":1,"language":"nl","format":"json"},
+    timeout=10
+).json()
+
+loc = geo["results"][0]
+lat, lon = loc["latitude"], loc["longitude"]
+
+today = datetime.now().date()
+start_dt = datetime.combine(today, starttijd)
+eind_dt = start_dt + timedelta(minutes=duur_min)
+mid_dt = start_dt + (eind_dt - start_dt)/2
+
+weather = requests.get(
+    "https://api.open-meteo.com/v1/forecast",
+    params={
+        "latitude":lat,
+        "longitude":lon,
+        "hourly":"temperature_2m,apparent_temperature,precipitation,weathercode,wind_speed_10m",
+        "daily":"sunset",
+        "timezone":"auto"
+    },
+    timeout=10
+).json()
+
+sunset = datetime.fromisoformat(weather["daily"]["sunset"][0])
+
+df = pd.DataFrame({
+    "tijd":[datetime.fromisoformat(t) for t in weather["hourly"]["time"]],
+    "temperatuur":weather["hourly"]["temperature_2m"],
+    "gevoel":weather["hourly"]["apparent_temperature"],
+    "neerslag":weather["hourly"]["precipitation"],
+    "wind":weather["hourly"]["wind_speed_10m"],
+    "weer_code":weather["hourly"]["weathercode"]
+})
+
+df = df[(df["tijd"].dt.date == today) & (df["tijd"] >= datetime.now().replace(minute=0,second=0))]
+
+df["nacht"] = df["tijd"] >= sunset
+df["weer"] = df.apply(lambda r: f"{weer_emoji(r['weer_code'],r['nacht'])} {weer_betekenis(r['weer_code'])}", axis=1)
+df["score"] = df.apply(lambda r: score_calc(r["gevoel"],r["neerslag"],r["wind"]), axis=1)
+
+mid_row = df.iloc[(df["tijd"] - mid_dt).abs().argsort().iloc[0]]
+score = int(mid_row["score"])
+kleur = "🟥" if score<=4 else "🟧" if score<=6 else "🟩"
+
+# -------------------------------------------------
+# HERO SCORE
+# -------------------------------------------------
+st.markdown("<div class='card hero'>", unsafe_allow_html=True)
 st.markdown(f"<div class='score'>{kleur} {score}</div>", unsafe_allow_html=True)
 st.markdown(
-    f"<div class='score-sub'>Gevoel: {mid_row['gevoel']:.1f} °C • "
+    f"<div class='meta'>Gevoel: {mid_row['gevoel']:.1f} °C • "
     f"Wind: {mid_row['wind']:.0f} km/u • "
-    f"{weer_emoji(mid_row['weer_code'])} {weer_betekenis(mid_row['weer_code'])}</div>",
+    f"{mid_row['weer']}</div>",
     unsafe_allow_html=True
 )
 st.markdown("</div>", unsafe_allow_html=True)
@@ -273,23 +231,24 @@ advies = {
 }
 
 cols = st.columns(2)
-items = list(advies.items())
-for i, (k, v) in enumerate(items):
-    with cols[i % 2]:
-        st.markdown(f"<div class='pill'><strong>{k}:</strong> {v}</div>", unsafe_allow_html=True)
+for i,(k,v) in enumerate(advies.items()):
+    with cols[i%2]:
+        st.markdown(f"<div class='advice-item'><strong>{k}</strong><br>{v}</div>", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
-# Weer-overzicht
+# Weersverwachting
 # -------------------------------------------------
 st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("<div class='section-title'>📊 Weersverwachting (rest van vandaag)</div>", unsafe_allow_html=True)
 
-df["weer"] = df.apply(lambda r: f"{weer_emoji(r['weer_code'])} {weer_betekenis(r['weer_code'])}", axis=1)
+df_show = df.copy()
+df_show["uur"] = df_show["tijd"].dt.strftime("%H:%M")
+df_show["temp / gevoel"] = df_show.apply(lambda r: f"{r['temperatuur']:.1f} / {r['gevoel']:.1f} °C", axis=1)
 
 st.dataframe(
-    df[["uur", "weer", "temperatuur", "gevoel", "neerslag"]],
+    df_show[["uur","weer","temp / gevoel","neerslag","score"]],
     hide_index=True
 )
 
