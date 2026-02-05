@@ -69,6 +69,35 @@ st.markdown("""
     background: rgba(255,255,255,0.06);
     margin-bottom: 0.6rem;
 }
+
+.tooltip {
+    position: relative;
+    display: inline-block;
+    cursor: help;
+}
+
+.tooltip .tooltiptext {
+    visibility: hidden;
+    width: 220px;
+    background-color: rgba(0,0,0,0.85);
+    color: #fff;
+    text-align: left;
+    border-radius: 8px;
+    padding: 0.6rem;
+    position: absolute;
+    z-index: 10;
+    bottom: 130%;
+    left: 50%;
+    transform: translateX(-50%);
+    opacity: 0;
+    transition: opacity 0.2s;
+    font-size: 0.75rem;
+}
+
+.tooltip:hover .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -278,13 +307,63 @@ kleding = {
     ),
 }
 
+waarom = {
+    "Hoofd": (
+        "Pet beschermt tegen zon en regen."
+        if is_zonnig or regen > 0
+        else "Muts helpt warmteverlies voorkomen bij kou."
+        if gevoel <= 0
+        else "Geen extra hoofdbedekking nodig."
+    ),
+    "Thermisch ondershirt": (
+        "Extra isolatie bij lage gevoelstemperatuur."
+        if kleding["Thermisch ondershirt"] == "Ja"
+        else "Niet nodig bij deze temperatuur."
+    ),
+    "Shirt": "Gekozen op basis van gevoelstemperatuur tijdens het lopen.",
+    "Broek": "Afhankelijk van kougevoel tijdens het lopen.",
+    "Jack": (
+        "Beschermt tegen regen en wind."
+        if kleding["Jack"] != "Geen"
+        else "Niet nodig bij deze omstandigheden."
+    ),
+    "Handen": (
+        "Handen koelen snel af bij lage gevoelstemperatuur."
+        if kleding["Handen"] != "Geen"
+        else "Geen extra bescherming nodig."
+    ),
+    "Verlichting": (
+        "Zichtbaarheid is belangrijk wanneer (een deel van) je run in het donker valt."
+        if run_na_zonsondergang
+        else "Je loopt volledig bij daglicht."
+    ),
+    "Zonnebril": (
+        "Beschermt ogen tegen fel zonlicht."
+        if is_zonnig
+        else "Niet nodig zonder fel zonlicht."
+    ),
+    "Zonnebrand": (
+        "UV-index is hoog genoeg om verbranding te veroorzaken."
+        if uv >= 3
+        else "UV-index is laag."
+    ),
+}
+
 st.markdown("#### 👕 Kleding")
 
 cols = st.columns(2)
 for i, (k, v) in enumerate(kleding.items()):
     with cols[i % 2]:
         st.markdown(
-            f"<div class='advice-item'><strong>{k}</strong><br>{v}</div>",
+            f"""
+            <div class="advice-item">
+                <strong>{k}</strong>
+                <span class="tooltip"> ⓘ
+                    <span class="tooltiptext">{waarom[k]}</span>
+                </span>
+                <br>{v}
+            </div>
+            """,
             unsafe_allow_html=True
         )
 
