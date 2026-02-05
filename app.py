@@ -51,7 +51,7 @@ eind_dt = start_dt + timedelta(minutes=duur_min)
 mid_dt = start_dt + (eind_dt - start_dt) / 2
 
 # -------------------------------------------------
-# Weer ophalen (hourly)
+# Weer ophalen
 # -------------------------------------------------
 weather = requests.get(
     "https://api.open-meteo.com/v1/forecast",
@@ -75,6 +75,7 @@ times = [datetime.fromisoformat(t) for t in hourly["time"]]
 
 df = pd.DataFrame({
     "tijd": times,
+    "uur": [t.strftime("%H:%M") for t in times],
     "temperatuur": hourly["temperature_2m"],
     "gevoel": hourly["apparent_temperature"],
     "neerslag": hourly["precipitation"],
@@ -82,27 +83,116 @@ df = pd.DataFrame({
     "weer_code": hourly["weathercode"]
 })
 
-# Pak het uur dat het dichtst bij het midden van de run ligt
+# -------------------------------------------------
+# Filter: resterende uren vandaag
+# -------------------------------------------------
+now = datetime.now().replace(minute=0, second=0)
+df = df[(df["tijd"].dt.date == today) & (df["tijd"] >= now)].copy()
+
+# -------------------------------------------------
+# Overlap-logica voor looptijd (correct!)
+# -------------------------------------------------
+def overlapt_met_run(uur_start, start, einde):
+    uur_einde = uur_start + timedelta(hours=1)
+    return uur_start < einde and uur_einde > start
+
+df["looptijd"] = df["tijd"].apply(
+    lambda t: overlapt_met_run(t, start_dt, eind_dt)
+)
+
+# -------------------------------------------------
+# Weer interpretatie
+# -------------------------------------------------
+def weer_label(code):
+    if code == 0:
+        return "Helder ☀️"
+    if code in [1, 2]:
+        return "Licht bewolkt ⛅"
+    if code == 3:
+        return "Bewolkt ☁️"
+    if code in [51, 53, 55, 61, 63, 65]:
+        return "Regen 🌧️"
+    if code in [71, 73, 75]:
+        return "Sneeuw ❄️"
+    return "Onbekend"
+
+df["weer"] = df["weer_code"].apply(weer_label)
+
+# -------------------------------------------------
+# Score (1–10)
+# -------------------------------------------------
+def running_score(feels, rain, wind):
+    score = 10
+    if feels < 0:
+        score -= 3
+    elif feels < 5:
+        score -= 2
+    elif feels > 20:
+        score -= 2
+
+    if rain > 1:
+        score -= 3
+    elif rain > 0:
+        score -= 1
+
+    if wind > 25:
+        score -= 2
+    elif wind > 15:
+        score -= 1
+
+    return max(1, min(10, score))
+
+df["score"] = df.apply(
+    lambda r: running_score(r["gevoel"], r["neerslag"], r["wind"]),
+    axis=1
+)
+
+# -------------------------------------------------
+# Weer op midden van de run
+# -------------------------------------------------
 mid_row = df.iloc[(df["tijd"] - mid_dt).abs().argsort().iloc[0]]
 
 gevoel = mid_row["gevoel"]
 neerslag = mid_row["neerslag"]
 wind = mid_row["wind"]
+score = int(mid_row["score"])
 
 # -------------------------------------------------
-# KLEDINGADVIES – JOUW LOGICA
+# Grote score
 # -------------------------------------------------
-st.subheader("👕 Kledingadvies (midden van de run)")
+st.subheader("⭐ Loop-geschiktheid (midden van de run)")
+
+kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
+
+st.markdown(
+    f"""
+    <div style="text-align:center; font-size:64px; font-weight:bold;">
+        {kleur} {score}
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+st.write(f"🌡️ Temperatuur: **{mid_row['temperatuur']:.1f} °C**")
+st.write(f"🥶 Gevoelstemperatuur: **{gevoel:.1f} °C**")
+st.write(f"🌧️ Neerslag: **{neerslag:.1f} mm/u**")
+st.write(f"💨 Wind: **{wind:.0f} km/u**")
+st.write(f"🌤️ Weer: **{mid_row['weer']}**")
+
+# -------------------------------------------------
+# KLEDINGADVIES (jouw afgesproken logica)
+# -------------------------------------------------
+st.subheader("👕 Kledingadvies")
 
 advies = {}
 
-# 1️⃣ Thermisch ondershirt
+# Thermisch ondershirt
 if gevoel <= -2 or (gevoel <= 0 and wind >= 15):
     advies["Thermisch ondershirt"] = "Ja (extra laag)"
 else:
     advies["Thermisch ondershirt"] = "Nee"
 
-# 2️⃣ Shirt
+# Shirt
 if gevoel <= 2:
     advies["Shirt"] = "Long sleeve"
 elif 3 <= gevoel <= 8:
@@ -112,7 +202,7 @@ elif 9 <= gevoel <= 14:
 else:
     advies["Shirt"] = "Singlet"
 
-# 3️⃣ Broek
+# Broek
 if gevoel <= 0:
     advies["Broek"] = "Winter tight"
 elif 1 <= gevoel <= 7:
@@ -120,7 +210,7 @@ elif 1 <= gevoel <= 7:
 else:
     advies["Broek"] = "Korte broek"
 
-# 4️⃣ Handen
+# Handen
 if gevoel <= -3:
     advies["Handen"] = "Wanten"
 elif -2 <= gevoel <= 4:
@@ -128,7 +218,7 @@ elif -2 <= gevoel <= 4:
 else:
     advies["Handen"] = "Geen"
 
-# 5️⃣ Jack
+# Jack
 if neerslag > 1:
     advies["Jack"] = "Regenjas"
 elif gevoel <= -5:
@@ -138,7 +228,7 @@ elif wind >= 15 and gevoel <= 5:
 else:
     advies["Jack"] = "Geen"
 
-# 6️⃣ Hoofd
+# Hoofd
 if gevoel <= 0:
     advies["Hoofd"] = "Muts"
 elif neerslag > 0:
@@ -146,24 +236,42 @@ elif neerslag > 0:
 else:
     advies["Hoofd"] = "Geen"
 
-# -------------------------------------------------
-# Output
-# -------------------------------------------------
-for item, keuze in advies.items():
-    st.write(f"**{item}:** {keuze}")
+for k, v in advies.items():
+    st.write(f"**{k}:** {v}")
 
-st.caption(
-    f"📍 {plaats} • 🕒 midden run: {mid_dt.strftime('%H:%M')} • "
-    f"gevoel: {gevoel:.1f} °C"
+# -------------------------------------------------
+# VISUELE "GRAFIEK" – REST VAN VANDAAG (BLIJFT!)
+# -------------------------------------------------
+st.subheader("📊 Weersverwachting – rest van vandaag")
+
+def score_bar(s):
+    return "🟩" * s + "⬜" * (10 - s)
+
+display_df = df.copy()
+display_df["score_visueel"] = display_df["score"].apply(score_bar)
+display_df["looptijd"] = display_df["looptijd"].apply(lambda x: "🟢" if x else "")
+
+st.dataframe(
+    display_df[
+        [
+            "uur",
+            "weer",
+            "temperatuur",
+            "gevoel",
+            "neerslag",
+            "score_visueel",
+            "looptijd"
+        ]
+    ],
+    hide_index=True
 )
 
+st.caption("🟢 = uur overlapt (gedeeltelijk) met jouw looptijd")
+
 # -------------------------------------------------
-# Debug / transparantie (optioneel)
+# Footer
 # -------------------------------------------------
-with st.expander("🔍 Gebruikte weerswaarden"):
-    st.write({
-        "Gevoelstemperatuur": round(gevoel, 1),
-        "Neerslag (mm/u)": neerslag,
-        "Wind (km/u)": wind,
-        "Referentietijd": mid_dt.strftime("%H:%M")
-    })
+st.caption(
+    f"📍 {plaats} • 🕒 {start_dt.strftime('%H:%M')}–{eind_dt.strftime('%H:%M')} "
+    f"(midden: {mid_dt.strftime('%H:%M')}) • ⏱️ {duur_min} min"
+)
