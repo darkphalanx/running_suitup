@@ -249,7 +249,7 @@ run_na_zonsondergang = eind_dt >= sunset
 kleding = {
     "Hoofd": (
         "Muts" if gevoel <= 0
-        else "Pet" if regen > 0
+        else "Pet" if (regen > 0 or is_zonnig)
         else "Geen"
     ),
     "Thermisch ondershirt": (
