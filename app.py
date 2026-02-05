@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 from datetime import time
-import streamlit.components.v1 as components
 
 # -------------------------------------------------
 # Page config
@@ -15,67 +14,40 @@ st.set_page_config(
 st.title("🏃‍♂️ Hardloop kledingadvies")
 
 # -------------------------------------------------
-# Session state init
+# Locatie invoer
 # -------------------------------------------------
-for key in ["lat", "lon", "location_received"]:
-    if key not in st.session_state:
-        st.session_state[key] = None
+st.subheader("📍 Locatie")
 
-# -------------------------------------------------
-# Browser geolocatie via JS
-# -------------------------------------------------
-components.html(
-    """
-    <script>
-    navigator.geolocation.getCurrentPosition(
-        function(position) {
-            const data = {
-                lat: position.coords.latitude,
-                lon: position.coords.longitude
-            };
-            window.parent.postMessage(
-                { type: "STREAMLIT_LOCATION", payload: data },
-                "*"
-            );
-        },
-        function(error) {
-            window.parent.postMessage(
-                { type: "STREAMLIT_LOCATION_DENIED" },
-                "*"
-            );
-        }
-    );
-    </script>
-    """,
-    height=0,
+plaats = st.text_input(
+    "Voer je stad of plaats in",
+    value="Lelystad"
 )
 
-# -------------------------------------------------
-# Ontvangen van JS events
-# -------------------------------------------------
-if "_js_event" not in st.session_state:
-    st.session_state["_js_event"] = None
-
-event = st.session_state.get("_js_event")
-
-if isinstance(event, dict):
-    if event.get("type") == "STREAMLIT_LOCATION":
-        st.session_state.lat = event["payload"]["lat"]
-        st.session_state.lon = event["payload"]["lon"]
-        st.session_state.location_received = True
-
-# -------------------------------------------------
-# Locatie check
-# -------------------------------------------------
-if not st.session_state.location_received:
-    st.info("📍 Locatie ophalen via browser… sta dit toe.")
+if not plaats:
     st.stop()
 
-lat = st.session_state.lat
-lon = st.session_state.lon
+# -------------------------------------------------
+# Geocoding (Open-Meteo)
+# -------------------------------------------------
+geo_url = (
+    "https://geocoding-api.open-meteo.com/v1/search"
+    f"?name={plaats}&count=1&language=nl&format=json"
+)
+
+geo_response = requests.get(geo_url, timeout=10).json()
+
+if "results" not in geo_response:
+    st.error("❌ Plaats niet gevonden")
+    st.stop()
+
+location = geo_response["results"][0]
+lat = location["latitude"]
+lon = location["longitude"]
+
+st.caption(f"Gevonden locatie: {location['name']}, {location['country']}")
 
 # -------------------------------------------------
-# Weer ophalen (Open-Meteo)
+# Weer ophalen
 # -------------------------------------------------
 weather_url = (
     "https://api.open-meteo.com/v1/forecast"
@@ -83,11 +55,10 @@ weather_url = (
     "&current_weather=true"
 )
 
-response = requests.get(weather_url, timeout=10)
-weather_data = response.json()["current_weather"]
+weather = requests.get(weather_url, timeout=10).json()["current_weather"]
 
-temperature = weather_data["temperature"]
-wind_speed = weather_data["windspeed"]
+temperature = weather["temperature"]
+wind_speed = weather["windspeed"]
 
 st.subheader("🌦️ Actuele omstandigheden")
 st.write(f"🌡️ Temperatuur: **{temperature:.1f} °C**")
@@ -100,10 +71,7 @@ st.subheader("🏃‍♂️ Jouw run")
 
 duration_minutes = st.slider(
     "Duur van de run (minuten)",
-    min_value=10,
-    max_value=180,
-    value=60,
-    step=5
+    10, 180, 60, step=5
 )
 
 start_time = st.time_input(
@@ -112,43 +80,43 @@ start_time = st.time_input(
 )
 
 # -------------------------------------------------
-# Kledingadvies logica
+# Kledingadvies
 # -------------------------------------------------
 st.subheader("👕 Kledingadvies")
 
 advies = []
 
-# Boven- en onderlichaam
 if temperature <= 5:
-    advies.append("👕 Thermisch ondershirt (lange mouw)")
-    advies.append("👖 Lange hardlooptight")
+    advies += [
+        "👕 Thermisch ondershirt (lange mouw)",
+        "👖 Lange hardlooptight"
+    ]
 elif temperature <= 12:
-    advies.append("👕 Longsleeve")
-    advies.append("👖 Lange hardlooptight")
+    advies += [
+        "👕 Longsleeve",
+        "👖 Lange hardlooptight"
+    ]
 else:
-    advies.append("👕 Shirt korte mouw")
-    advies.append("🩳 Korte broek")
+    advies += [
+        "👕 Shirt korte mouw",
+        "🩳 Korte broek"
+    ]
 
-# Wind / kou accessoires
 if temperature <= 3 or wind_speed >= 20:
-    advies.append("🧤 Dunne hardloophandschoenen")
-    advies.append("🧣 Buff of dunne muts")
+    advies += [
+        "🧤 Dunne hardloophandschoenen",
+        "🧣 Buff of dunne muts"
+    ]
 
-# Windjack
 if wind_speed >= 15:
     advies.append("🧥 Licht winddicht hardloopjack")
 
-# Langere runs
 if duration_minutes >= 90:
-    advies.append("🩹 Anti-schuurmaatregelen (bodyglide / tape)")
+    advies.append("🩹 Anti-schuurmaatregelen")
 
-# -------------------------------------------------
-# Output
-# -------------------------------------------------
 for item in advies:
     st.write(item)
 
 st.caption(
-    f"📍 Advies gebaseerd op actuele omstandigheden en een run van "
-    f"{duration_minutes} min om {start_time.strftime('%H:%M')}."
+    f"📍 {plaats} • 🕒 {start_time.strftime('%H:%M')} • ⏱️ {duration_minutes} min"
 )
