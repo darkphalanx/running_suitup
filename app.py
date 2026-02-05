@@ -202,13 +202,21 @@ kleur = "🟥" if score<=4 else "🟧" if score<=6 else "🟩"
 # HERO SCORE
 # -------------------------------------------------
 st.markdown("<div class='card hero'>", unsafe_allow_html=True)
-st.markdown(f"<div class='score'>{kleur} {score}</div>", unsafe_allow_html=True)
+
 st.markdown(
-    f"<div class='meta'>Gevoel: {mid_row['gevoel']:.1f} °C • "
-    f"Wind: {mid_row['wind']:.0f} km/u • "
-    f"{mid_row['weer']}</div>",
+    f"<div class='score'>{kleur} {score}</div>",
     unsafe_allow_html=True
 )
+
+st.markdown(
+    f"<div class='meta'>"
+    f"{mid_row['weer']} • "
+    f"Gevoel: {mid_row['gevoel']:.1f} °C • "
+    f"Wind: {mid_row['wind']:.0f} km/u"
+    f"</div>",
+    unsafe_allow_html=True
+)
+
 st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
