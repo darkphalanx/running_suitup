@@ -230,36 +230,94 @@ st.markdown(
 # -------------------------------------------------
 # KLEDINGADVIES
 # -------------------------------------------------
-st.markdown("<div class='section-title'>👕 Kledingadvies</div>", unsafe_allow_html=True)
+st.markdown("<div class='card'>", unsafe_allow_html=True)
+st.markdown("<div class='section-title'>🦺 Kledingadvies</div>", unsafe_allow_html=True)
 
+# Waarden midden van de run
 gevoel = mid_row["gevoel"]
 wind = mid_row["wind"]
 regen = mid_row["neerslag"]
 uv = mid_row["uv"]
 
+# Context
 is_zonnig = mid_row["weer_code"] in [0, 1] and not mid_row["nacht"]
 run_na_zonsondergang = eind_dt >= sunset
 
-advies = {
-    "Hoofd": "Muts" if gevoel <= 0 else "Pet" if regen > 0 else "Geen",    
-    "Thermisch ondershirt": "Ja" if (gevoel <= -2 or (gevoel <= 0 and wind >= 15)) else "Nee",
-    "Shirt": "Long sleeve" if gevoel <= 8 else "Korte mouw" if gevoel <= 14 else "Singlet",
-    "Broek": "Winter tight" if gevoel <= 0 else "Long tight" if gevoel <= 7 else "Korte broek",
-    "Jack": "Regenjas" if regen > 1 else "Licht jack" if wind >= 15 and gevoel <= 5 else "Geen",
-    "Handen": "Wanten" if gevoel <= -3 else "Dunne handschoenen" if gevoel <= 4 else "Geen",    
-    "Verlichting": "Aanbevolen" if run_na_zonsondergang else "Niet nodig",
-    "Zonnebril": "Aanbevolen" if is_zonnig else "Niet nodig",
-    "Zonnebrand": "Aanbevolen (UV ≥ 3)" if uv >= 3 else "Niet nodig"
+# -----------------------------
+# Kleding (outfit)
+# -----------------------------
+kleding = {
+    "Hoofd": (
+        "Muts" if gevoel <= 0
+        else "Pet" if regen > 0
+        else "Geen"
+    ),
+    "Thermisch ondershirt": (
+        "Ja" if (gevoel <= -2 or (gevoel <= 0 and wind >= 15))
+        else "Nee"
+    ),
+    "Shirt": (
+        "Long sleeve" if gevoel <= 8
+        else "Korte mouw" if gevoel <= 14
+        else "Singlet"
+    ),
+    "Broek": (
+        "Winter tight" if gevoel <= 0
+        else "Long tight" if gevoel <= 7
+        else "Korte broek"
+    ),
+    "Jack": (
+        "Regenjas" if regen > 1
+        else "Licht jack" if wind >= 15 and gevoel <= 5
+        else "Geen"
+    ),
+    "Handen": (
+        "Wanten" if gevoel <= -3
+        else "Dunne handschoenen" if gevoel <= 4
+        else "Geen"
+    ),
 }
 
+st.markdown("#### 👕 Kleding")
+
 cols = st.columns(2)
-for i, (k, v) in enumerate(advies.items()):
+for i, (k, v) in enumerate(kleding.items()):
     with cols[i % 2]:
         st.markdown(
             f"<div class='advice-item'><strong>{k}</strong><br>{v}</div>",
             unsafe_allow_html=True
         )
 
+# -----------------------------
+# Accessoires & veiligheid
+# -----------------------------
+st.markdown("<br>", unsafe_allow_html=True)
+st.markdown("#### 🧢 Accessoires & veiligheid")
+
+accessoires = {
+    "Verlichting": (
+        "Aanbevolen" if run_na_zonsondergang
+        else "Niet nodig"
+    ),
+    "Zonnebril": (
+        "Aanbevolen" if is_zonnig
+        else "Niet nodig"
+    ),
+    "Zonnebrand": (
+        "Aanbevolen (UV ≥ 3)" if uv >= 3
+        else "Niet nodig"
+    ),
+}
+
+cols = st.columns(2)
+for i, (k, v) in enumerate(accessoires.items()):
+    with cols[i % 2]:
+        st.markdown(
+            f"<div class='advice-item'><strong>{k}</strong><br>{v}</div>",
+            unsafe_allow_html=True
+        )
+
+st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # WEEROVERZICHT
