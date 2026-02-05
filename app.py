@@ -136,7 +136,11 @@ score = int(closest["score"])
 kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
 
 st.markdown(
-    f"<div style='text-align:center; font-size:64px; font-weight:bold;'>{kleur} {score}/10</div>",
+    f"""
+    <div style="text-align:center; font-size:64px; font-weight:bold;">
+        {kleur} {score}
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
@@ -165,29 +169,4 @@ if closest["gevoel"] <= 3:
 if closest["neerslag"] > 0:
     advies.append("🧥 Licht waterafstotend jack")
 
-for a in advies:
-    st.write(a)
-
-# -------------------------------------------------
-# DUIDELIJKE WEERSGRAFIEK (native Streamlit)
-# -------------------------------------------------
-st.subheader("📊 Weersverwachting – rest van vandaag")
-
-chart_df = df.set_index("uur")[["temperatuur", "gevoel", "neerslag"]]
-st.line_chart(chart_df[["temperatuur", "gevoel"]])
-st.bar_chart(chart_df[["neerslag"]])
-
-# Highlight looptijd in tabel (visueel 100% duidelijk)
-st.markdown("**🟩 Gemarkeerde uren = jouw looptijd**")
-st.dataframe(
-    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
-    hide_index=True
-)
-
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
-st.caption(
-    f"📍 {plaats} • 🕒 {start_dt.strftime('%H:%M')}–{eind_dt.strftime('%H:%M')} • "
-    f"⏱️ {duur_min} min"
-)
+for a in adv
