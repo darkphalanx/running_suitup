@@ -210,25 +210,22 @@ score = int(mid_row["score"])
 kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
 
 # -------------------------------------------------
-# HERO SCORE CARD (ENIGE SCORE-RENDER)
+# HERO SCORE CARD (100% GESLOTEN BLOK)
 # -------------------------------------------------
-
-st.markdown("<div class='card hero'>", unsafe_allow_html=True)
 st.markdown(
-    f"<div class='score'>{kleur} {score}</div>",
+    f"""
+    <div class="card hero">
+        <div class="score">{kleur} {score}</div>
+        <div class="meta">
+            {mid_row['weer']} &nbsp;•&nbsp;
+            Gevoel: {mid_row['gevoel']:.1f} °C &nbsp;•&nbsp;
+            Wind: {mid_row['wind']:.0f} km/u
+        </div>
+    </div>
+    """,
     unsafe_allow_html=True
 )
 
-st.markdown(
-    f"<div class='meta'>"
-    f"{mid_row['weer']} • "
-    f"Gevoel: {mid_row['gevoel']:.1f} °C • "
-    f"Wind: {mid_row['wind']:.0f} km/u"
-    f"</div>",
-    unsafe_allow_html=True
-)
-
-st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # KLEDINGADVIES
