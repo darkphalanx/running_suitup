@@ -1,7 +1,6 @@
 import streamlit as st
 import requests
 import pandas as pd
-import altair as alt
 from datetime import datetime, time, timedelta
 
 # -------------------------------------------------
@@ -36,6 +35,7 @@ if "results" not in geo:
 
 loc = geo["results"][0]
 lat, lon = loc["latitude"], loc["longitude"]
+
 st.caption(f"Gevonden locatie: {loc['name']}, {loc['country']}")
 
 # -------------------------------------------------
@@ -89,7 +89,7 @@ for i, t in enumerate(times):
 df = pd.DataFrame(rows)
 
 # -------------------------------------------------
-# Weer interpretatie (dag/nacht correct)
+# Weer interpretatie
 # -------------------------------------------------
 def weer_label(code, nacht):
     if code == 0:
@@ -107,7 +107,7 @@ def weer_label(code, nacht):
 df["weer"] = df.apply(lambda r: weer_label(r["weer_code"], r["nacht"]), axis=1)
 
 # -------------------------------------------------
-# Score functie (1–10)
+# Score (1–10)
 # -------------------------------------------------
 def running_score(feels, rain):
     score = 10
@@ -126,24 +126,17 @@ def running_score(feels, rain):
 df["score"] = df.apply(lambda r: running_score(r["gevoel"], r["neerslag"]), axis=1)
 
 # -------------------------------------------------
-# Weer op starttijd
+# Weer + score op starttijd
 # -------------------------------------------------
 closest = df.iloc[(df["tijd"] - start_dt).abs().argsort().iloc[0]]
 
-# -------------------------------------------------
-# Grote score
-# -------------------------------------------------
 st.subheader("⭐ Loop-geschiktheid tijdens jouw run")
 
-score = closest["score"]
+score = int(closest["score"])
 kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
 
 st.markdown(
-    f"""
-    <div style="text-align:center; font-size:64px; font-weight:bold;">
-        {kleur} {score}/10
-    </div>
-    """,
+    f"<div style='text-align:center; font-size:64px; font-weight:bold;'>{kleur} {score}/10</div>",
     unsafe_allow_html=True
 )
 
@@ -153,7 +146,7 @@ st.write(f"🌧️ Neerslag: **{closest['neerslag']:.1f} mm/u**")
 st.write(f"🌤️ Weer: **{closest['weer']}**")
 
 # -------------------------------------------------
-# Kledingadvies (TERUG & VERBETERD)
+# Kledingadvies
 # -------------------------------------------------
 st.subheader("👕 Kledingadvies")
 
@@ -176,35 +169,20 @@ for a in advies:
     st.write(a)
 
 # -------------------------------------------------
-# Grafiek
+# DUIDELIJKE WEERSGRAFIEK (native Streamlit)
 # -------------------------------------------------
 st.subheader("📊 Weersverwachting – rest van vandaag")
 
-base = alt.Chart(df).encode(x="uur:N")
+chart_df = df.set_index("uur")[["temperatuur", "gevoel", "neerslag"]]
+st.line_chart(chart_df[["temperatuur", "gevoel"]])
+st.bar_chart(chart_df[["neerslag"]])
 
-highlight = base.mark_rect(opacity=0.15).encode(
-    color=alt.condition(
-        alt.datum.looptijd,
-        alt.value("#A5D6A7"),
-        alt.value("transparent")
-    )
+# Highlight looptijd in tabel (visueel 100% duidelijk)
+st.markdown("**🟩 Gemarkeerde uren = jouw looptijd**")
+st.dataframe(
+    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
+    hide_index=True
 )
-
-temp_line = base.mark_line(color="red").encode(
-    y="temperatuur:Q",
-    tooltip=["uur", "weer", "temperatuur", "gevoel", "neerslag", "score"]
-)
-
-feel_line = base.mark_line(color="blue", strokeDash=[4, 2]).encode(
-    y="gevoel:Q"
-)
-
-rain_bar = base.mark_bar(color="steelblue", opacity=0.4).encode(
-    y="neerslag:Q"
-)
-
-chart = alt.layer(highlight, rain_bar, temp_line, feel_line).resolve_scale(y="independent")
-st.altair_chart(chart, use_container_width=True)
 
 # -------------------------------------------------
 # Footer
