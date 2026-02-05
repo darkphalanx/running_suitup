@@ -24,19 +24,18 @@ plaats = st.text_input("Stad / plaats", value="Lelystad")
 if not plaats:
     st.stop()
 
-geo_url = (
-    "https://geocoding-api.open-meteo.com/v1/search"
-    f"?name={plaats}&count=1&language=nl&format=json"
-)
+geo = requests.get(
+    "https://geocoding-api.open-meteo.com/v1/search",
+    params={"name": plaats, "count": 1, "language": "nl", "format": "json"},
+    timeout=10
+).json()
 
-geo = requests.get(geo_url, timeout=10).json()
 if "results" not in geo:
     st.error("❌ Locatie niet gevonden")
     st.stop()
 
 loc = geo["results"][0]
 lat, lon = loc["latitude"], loc["longitude"]
-
 st.caption(f"Gevonden locatie: {loc['name']}, {loc['country']}")
 
 # -------------------------------------------------
@@ -52,18 +51,25 @@ start_dt = datetime.combine(today, starttijd)
 eind_dt = start_dt + timedelta(minutes=duur_min)
 
 # -------------------------------------------------
-# Weer forecast ophalen (hourly)
+# Weer ophalen (incl. zonsondergang)
 # -------------------------------------------------
-weather_url = (
-    "https://api.open-meteo.com/v1/forecast"
-    f"?latitude={lat}&longitude={lon}"
-    "&hourly=temperature_2m,apparent_temperature,precipitation,weathercode"
-    "&timezone=auto"
-)
+weather = requests.get(
+    "https://api.open-meteo.com/v1/forecast",
+    params={
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": "temperature_2m,apparent_temperature,precipitation,weathercode",
+        "daily": "sunset",
+        "timezone": "auto"
+    },
+    timeout=10
+).json()
 
-hourly = requests.get(weather_url, timeout=10).json()["hourly"]
+sunset = datetime.fromisoformat(weather["daily"]["sunset"][0])
 
+hourly = weather["hourly"]
 times = [datetime.fromisoformat(t) for t in hourly["time"]]
+
 now = datetime.now().replace(minute=0, second=0)
 
 rows = []
@@ -76,33 +82,32 @@ for i, t in enumerate(times):
             "gevoel": hourly["apparent_temperature"][i],
             "neerslag": hourly["precipitation"][i],
             "weer_code": hourly["weathercode"][i],
+            "nacht": t >= sunset,
             "looptijd": start_dt <= t <= eind_dt
         })
 
 df = pd.DataFrame(rows)
 
 # -------------------------------------------------
-# Weer interpretatie
+# Weer interpretatie (dag/nacht correct)
 # -------------------------------------------------
-def weer_label(code):
-    if code in [0]:
-        return "Zonnig ☀️"
+def weer_label(code, nacht):
+    if code == 0:
+        return "Helder 🌙" if nacht else "Zonnig ☀️"
     if code in [1, 2]:
-        return "Licht bewolkt ⛅"
-    if code in [3]:
+        return "Licht bewolkt 🌙" if nacht else "Licht bewolkt ⛅"
+    if code == 3:
         return "Bewolkt ☁️"
-    if code in [45, 48]:
-        return "Mist 🌫️"
     if code in [51, 53, 55, 61, 63, 65]:
         return "Regen 🌧️"
     if code in [71, 73, 75]:
         return "Sneeuw ❄️"
     return "Onbekend"
 
-df["weer"] = df["weer_code"].apply(weer_label)
+df["weer"] = df.apply(lambda r: weer_label(r["weer_code"], r["nacht"]), axis=1)
 
 # -------------------------------------------------
-# Score functie
+# Score functie (1–10)
 # -------------------------------------------------
 def running_score(feels, rain):
     score = 10
@@ -125,64 +130,81 @@ df["score"] = df.apply(lambda r: running_score(r["gevoel"], r["neerslag"]), axis
 # -------------------------------------------------
 closest = df.iloc[(df["tijd"] - start_dt).abs().argsort().iloc[0]]
 
-st.subheader("🌦️ Weer tijdens jouw run")
+# -------------------------------------------------
+# Grote score
+# -------------------------------------------------
+st.subheader("⭐ Loop-geschiktheid tijdens jouw run")
+
+score = closest["score"]
+kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
+
+st.markdown(
+    f"""
+    <div style="text-align:center; font-size:64px; font-weight:bold;">
+        {kleur} {score}/10
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
 st.write(f"🌡️ Temperatuur: **{closest['temperatuur']:.1f} °C**")
 st.write(f"🥶 Gevoelstemperatuur: **{closest['gevoel']:.1f} °C**")
 st.write(f"🌧️ Neerslag: **{closest['neerslag']:.1f} mm/u**")
 st.write(f"🌤️ Weer: **{closest['weer']}**")
 
 # -------------------------------------------------
+# Kledingadvies (TERUG & VERBETERD)
+# -------------------------------------------------
+st.subheader("👕 Kledingadvies")
+
+advies = []
+
+if closest["gevoel"] <= 5:
+    advies += ["👕 Thermisch ondershirt (lange mouw)", "👖 Lange hardlooptight"]
+elif closest["gevoel"] <= 12:
+    advies += ["👕 Longsleeve", "👖 Lange hardlooptight"]
+else:
+    advies += ["👕 Shirt korte mouw", "🩳 Korte broek"]
+
+if closest["gevoel"] <= 3:
+    advies += ["🧤 Dunne handschoenen", "🧣 Buff of dunne muts"]
+
+if closest["neerslag"] > 0:
+    advies.append("🧥 Licht waterafstotend jack")
+
+for a in advies:
+    st.write(a)
+
+# -------------------------------------------------
 # Grafiek
 # -------------------------------------------------
 st.subheader("📊 Weersverwachting – rest van vandaag")
 
-base = alt.Chart(df).encode(
-    x=alt.X("uur:N", title="Uur")
-)
+base = alt.Chart(df).encode(x="uur:N")
 
-# Achtergrond highlight looptijd
 highlight = base.mark_rect(opacity=0.15).encode(
-    x="uur:N",
     color=alt.condition(
         alt.datum.looptijd,
-        alt.value("#8BC34A"),
+        alt.value("#A5D6A7"),
         alt.value("transparent")
     )
 )
 
 temp_line = base.mark_line(color="red").encode(
-    y=alt.Y("temperatuur:Q", title="Temperatuur (°C)"),
-    tooltip=["uur", "temperatuur", "gevoel", "neerslag", "weer", "score"]
+    y="temperatuur:Q",
+    tooltip=["uur", "weer", "temperatuur", "gevoel", "neerslag", "score"]
 )
 
-feel_line = base.mark_line(color="blue", strokeDash=[4,2]).encode(
+feel_line = base.mark_line(color="blue", strokeDash=[4, 2]).encode(
     y="gevoel:Q"
 )
 
 rain_bar = base.mark_bar(color="steelblue", opacity=0.4).encode(
-    y=alt.Y("neerslag:Q", title="Neerslag (mm)")
+    y="neerslag:Q"
 )
 
-chart = alt.layer(
-    highlight,
-    rain_bar,
-    temp_line,
-    feel_line
-).resolve_scale(
-    y="independent"
-)
-
+chart = alt.layer(highlight, rain_bar, temp_line, feel_line).resolve_scale(y="independent")
 st.altair_chart(chart, use_container_width=True)
-
-# -------------------------------------------------
-# Tabel (extra duidelijkheid)
-# -------------------------------------------------
-st.subheader("📋 Overzicht per uur")
-
-st.dataframe(
-    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
-    hide_index=True
-)
 
 # -------------------------------------------------
 # Footer
