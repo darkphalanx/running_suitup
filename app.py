@@ -35,7 +35,6 @@ if "results" not in geo:
 
 loc = geo["results"][0]
 lat, lon = loc["latitude"], loc["longitude"]
-
 st.caption(f"Gevonden locatie: {loc['name']}, {loc['country']}")
 
 # -------------------------------------------------
@@ -49,152 +48,122 @@ starttijd = st.time_input("Starttijd", value=time(18, 0))
 today = datetime.now().date()
 start_dt = datetime.combine(today, starttijd)
 eind_dt = start_dt + timedelta(minutes=duur_min)
+mid_dt = start_dt + (eind_dt - start_dt) / 2
 
 # -------------------------------------------------
-# Weer ophalen (incl. zonsondergang)
+# Weer ophalen (hourly)
 # -------------------------------------------------
 weather = requests.get(
     "https://api.open-meteo.com/v1/forecast",
     params={
         "latitude": lat,
         "longitude": lon,
-        "hourly": "temperature_2m,apparent_temperature,precipitation,weathercode",
-        "daily": "sunset",
+        "hourly": (
+            "temperature_2m,"
+            "apparent_temperature,"
+            "precipitation,"
+            "weathercode,"
+            "wind_speed_10m"
+        ),
         "timezone": "auto"
     },
     timeout=10
 ).json()
 
-sunset = datetime.fromisoformat(weather["daily"]["sunset"][0])
-
 hourly = weather["hourly"]
 times = [datetime.fromisoformat(t) for t in hourly["time"]]
 
-now = datetime.now().replace(minute=0, second=0)
+df = pd.DataFrame({
+    "tijd": times,
+    "temperatuur": hourly["temperature_2m"],
+    "gevoel": hourly["apparent_temperature"],
+    "neerslag": hourly["precipitation"],
+    "wind": hourly["wind_speed_10m"],
+    "weer_code": hourly["weathercode"]
+})
 
-rows = []
-for i, t in enumerate(times):
-    if t.date() == today and t >= now:
-        uur_start = t
-        uur_einde = t + timedelta(hours=1)
+# Pak het uur dat het dichtst bij het midden van de run ligt
+mid_row = df.iloc[(df["tijd"] - mid_dt).abs().argsort().iloc[0]]
 
-        looptijd = (
-            uur_start < eind_dt and
-            uur_einde > start_dt
-        )
-
-        rows.append({
-            "tijd": t,
-            "uur": t.strftime("%H:%M"),
-            "temperatuur": hourly["temperature_2m"][i],
-            "gevoel": hourly["apparent_temperature"][i],
-            "neerslag": hourly["precipitation"][i],
-            "weer_code": hourly["weathercode"][i],
-            "nacht": t >= sunset,
-            "looptijd": looptijd
-        })
-
-
-df = pd.DataFrame(rows)
+gevoel = mid_row["gevoel"]
+neerslag = mid_row["neerslag"]
+wind = mid_row["wind"]
 
 # -------------------------------------------------
-# Weer interpretatie
+# KLEDINGADVIES – JOUW LOGICA
 # -------------------------------------------------
-def weer_label(code, nacht):
-    if code == 0:
-        return "Helder 🌙" if nacht else "Zonnig ☀️"
-    if code in [1, 2]:
-        return "Licht bewolkt 🌙" if nacht else "Licht bewolkt ⛅"
-    if code == 3:
-        return "Bewolkt ☁️"
-    if code in [51, 53, 55, 61, 63, 65]:
-        return "Regen 🌧️"
-    if code in [71, 73, 75]:
-        return "Sneeuw ❄️"
-    return "Onbekend"
+st.subheader("👕 Kledingadvies (midden van de run)")
 
-df["weer"] = df.apply(lambda r: weer_label(r["weer_code"], r["nacht"]), axis=1)
+advies = {}
 
-# -------------------------------------------------
-# Score (1–10)
-# -------------------------------------------------
-def running_score(feels, rain):
-    score = 10
-    if feels < 0:
-        score -= 3
-    elif feels < 5:
-        score -= 2
-    elif feels > 20:
-        score -= 2
-    if rain > 1:
-        score -= 3
-    elif rain > 0:
-        score -= 1
-    return max(1, min(10, score))
-
-df["score"] = df.apply(lambda r: running_score(r["gevoel"], r["neerslag"]), axis=1)
-
-# -------------------------------------------------
-# Weer + score op starttijd
-# -------------------------------------------------
-closest = df.iloc[(df["tijd"] - start_dt).abs().argsort().iloc[0]]
-
-st.subheader("⭐ Loop-geschiktheid tijdens jouw run")
-
-score = int(closest["score"])
-kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
-
-st.markdown(
-    f"""
-    <div style="text-align:center; font-size:64px; font-weight:bold;">
-        {kleur} {score}
-    </div>
-    """,
-    unsafe_allow_html=True
-)
-
-st.write(f"🌡️ Temperatuur: **{closest['temperatuur']:.1f} °C**")
-st.write(f"🥶 Gevoelstemperatuur: **{closest['gevoel']:.1f} °C**")
-st.write(f"🌧️ Neerslag: **{closest['neerslag']:.1f} mm/u**")
-st.write(f"🌤️ Weer: **{closest['weer']}**")
-
-# -------------------------------------------------
-# Kledingadvies
-# -------------------------------------------------
-st.subheader("👕 Kledingadvies")
-
-advies = []
-
-if closest["gevoel"] <= 5:
-    advies += ["👕 Thermisch ondershirt (lange mouw)", "👖 Lange hardlooptight"]
-elif closest["gevoel"] <= 12:
-    advies += ["👕 Longsleeve", "👖 Lange hardlooptight"]
+# 1️⃣ Thermisch ondershirt
+if gevoel <= -2 or (gevoel <= 0 and wind >= 15):
+    advies["Thermisch ondershirt"] = "Ja (extra laag)"
 else:
-    advies += ["👕 Shirt korte mouw", "🩳 Korte broek"]
+    advies["Thermisch ondershirt"] = "Nee"
 
-if closest["gevoel"] <= 3:
-    advies += ["🧤 Dunne handschoenen", "🧣 Buff of dunne muts"]
+# 2️⃣ Shirt
+if gevoel <= 2:
+    advies["Shirt"] = "Long sleeve"
+elif 3 <= gevoel <= 8:
+    advies["Shirt"] = "Long sleeve (of korte mouw bij hoge intensiteit)"
+elif 9 <= gevoel <= 14:
+    advies["Shirt"] = "Korte mouw"
+else:
+    advies["Shirt"] = "Singlet"
 
-if closest["neerslag"] > 0:
-    advies.append("🧥 Licht waterafstotend jack")
+# 3️⃣ Broek
+if gevoel <= 0:
+    advies["Broek"] = "Winter tight"
+elif 1 <= gevoel <= 7:
+    advies["Broek"] = "Long tight"
+else:
+    advies["Broek"] = "Korte broek"
 
-for a in advies:
-    st.write(a)
+# 4️⃣ Handen
+if gevoel <= -3:
+    advies["Handen"] = "Wanten"
+elif -2 <= gevoel <= 4:
+    advies["Handen"] = "Dunne handschoenen"
+else:
+    advies["Handen"] = "Geen"
+
+# 5️⃣ Jack
+if neerslag > 1:
+    advies["Jack"] = "Regenjas"
+elif gevoel <= -5:
+    advies["Jack"] = "Dikkere jas"
+elif wind >= 15 and gevoel <= 5:
+    advies["Jack"] = "Licht jack"
+else:
+    advies["Jack"] = "Geen"
+
+# 6️⃣ Hoofd
+if gevoel <= 0:
+    advies["Hoofd"] = "Muts"
+elif neerslag > 0:
+    advies["Hoofd"] = "Pet"
+else:
+    advies["Hoofd"] = "Geen"
 
 # -------------------------------------------------
-# Tabel per uur (blijft)
+# Output
 # -------------------------------------------------
-st.subheader("📋 Weersverwachting – rest van vandaag")
+for item, keuze in advies.items():
+    st.write(f"**{item}:** {keuze}")
 
-st.dataframe(
-    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
-    hide_index=True
-)
-
-# -------------------------------------------------
-# Footer
-# -------------------------------------------------
 st.caption(
-    f"📍 {plaats} • 🕒 {start_dt.strftime('%H:%M')}–{eind_dt.strftime('%H:%M')} • "
-    f"⏱️ {duur_min} min"
+    f"📍 {plaats} • 🕒 midden run: {mid_dt.strftime('%H:%M')} • "
+    f"gevoel: {gevoel:.1f} °C"
 )
+
+# -------------------------------------------------
+# Debug / transparantie (optioneel)
+# -------------------------------------------------
+with st.expander("🔍 Gebruikte weerswaarden"):
+    st.write({
+        "Gevoelstemperatuur": round(gevoel, 1),
+        "Neerslag (mm/u)": neerslag,
+        "Wind (km/u)": wind,
+        "Referentietijd": mid_dt.strftime("%H:%M")
+    })
