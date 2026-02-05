@@ -73,31 +73,45 @@ st.markdown("""
 .tooltip {
     position: relative;
     display: inline-block;
-    cursor: help;
+    cursor: pointer;
 }
 
+/* Tooltip box */
 .tooltip .tooltiptext {
     visibility: hidden;
-    width: 220px;
-    background-color: rgba(0,0,0,0.85);
+    min-width: 220px;
+    max-width: 260px;
+    background-color: rgba(0, 0, 0, 0.85);
     color: #fff;
     text-align: left;
     border-radius: 8px;
-    padding: 0.6rem;
+    padding: 0.6rem 0.7rem;
+
     position: absolute;
-    z-index: 10;
-    bottom: 130%;
-    left: 50%;
-    transform: translateX(-50%);
+    top: 50%;
+    left: 120%;
+    transform: translateY(-50%) translateX(-6px);
     opacity: 0;
-    transition: opacity 0.2s;
+
+    transition: opacity 0.2s ease, transform 0.2s ease;
     font-size: 0.75rem;
+    z-index: 20;
 }
 
+/* Hover (desktop) */
 .tooltip:hover .tooltiptext {
     visibility: visible;
     opacity: 1;
+    transform: translateY(-50%) translateX(0);
 }
+
+/* Click / tap (mobile) */
+.tooltip:focus-within .tooltiptext {
+    visibility: visible;
+    opacity: 1;
+    transform: translateY(-50%) translateX(0);
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -259,8 +273,7 @@ st.markdown(
 # -------------------------------------------------
 # KLEDINGADVIES
 # -------------------------------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
-st.markdown("<div class='section-title'>🦺 Kledingadvies</div>", unsafe_allow_html=True)
+st.markdown("<div class='section-title'>Kledingadvies</div>", unsafe_allow_html=True)
 
 # Waarden midden van de run
 gevoel = mid_row["gevoel"]
@@ -349,7 +362,7 @@ waarom = {
     ),
 }
 
-st.markdown("#### 👕 Kleding")
+st.markdown("#### 🎽 Kleding")
 
 cols = st.columns(2)
 for i, (k, v) in enumerate(kleding.items()):
@@ -358,7 +371,7 @@ for i, (k, v) in enumerate(kleding.items()):
             f"""
             <div class="advice-item">
                 <strong>{k}</strong>
-                <span class="tooltip"> ⓘ
+                <span class="tooltip" tabindex="0"> ⓘ
                     <span class="tooltiptext">{waarom[k]}</span>
                 </span>
                 <br>{v}
