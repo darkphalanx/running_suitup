@@ -18,34 +18,75 @@ st.set_page_config(
 st.markdown(
     """
     <style>
-    .card {
-        background-color: #ffffff;
-        border-radius: 12px;
-        padding: 1.2rem 1.4rem;
-        margin-bottom: 1.2rem;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    :root {
+        --card-bg-light: #ffffff;
+        --card-bg-dark: #1e1e1e;
+        --text-light: #1f1f1f;
+        --text-dark: #e6e6e6;
+        --muted-light: #666666;
+        --muted-dark: #aaaaaa;
+        --pill-light: #f0f2f6;
+        --pill-dark: #2a2a2a;
     }
+
+    @media (prefers-color-scheme: dark) {
+        .card {
+            background-color: var(--card-bg-dark);
+            color: var(--text-dark);
+        }
+        .score-sub {
+            color: var(--muted-dark);
+        }
+        .pill {
+            background: var(--pill-dark);
+            color: var(--text-dark);
+        }
+    }
+
+    @media (prefers-color-scheme: light) {
+        .card {
+            background-color: var(--card-bg-light);
+            color: var(--text-light);
+        }
+        .score-sub {
+            color: var(--muted-light);
+        }
+        .pill {
+            background: var(--pill-light);
+            color: var(--text-light);
+        }
+    }
+
+    .card {
+        border-radius: 14px;
+        padding: 1.4rem 1.6rem;
+        margin-bottom: 1.4rem;
+        box-shadow: 0 4px 14px rgba(0,0,0,0.12);
+    }
+
     .score {
         font-size: 64px;
         font-weight: 700;
         text-align: center;
         margin: 0;
     }
+
     .score-sub {
         text-align: center;
-        color: #666;
-        margin-top: -10px;
+        margin-top: -8px;
+        font-size: 0.95rem;
     }
+
     .section-title {
         font-size: 1.2rem;
         font-weight: 600;
         margin-bottom: 0.6rem;
     }
+
     .pill {
         display: inline-block;
-        padding: 0.25rem 0.6rem;
+        padding: 0.35rem 0.75rem;
         border-radius: 999px;
-        background: #f0f2f6;
         margin-right: 0.4rem;
         margin-bottom: 0.4rem;
         font-size: 0.85rem;
@@ -54,6 +95,7 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
 
 # -------------------------------------------------
 # Helpers: emoji + betekenis
