@@ -169,4 +169,23 @@ if closest["gevoel"] <= 3:
 if closest["neerslag"] > 0:
     advies.append("🧥 Licht waterafstotend jack")
 
-for a in adv
+for a in advies:
+    st.write(a)
+
+# -------------------------------------------------
+# Tabel per uur (blijft)
+# -------------------------------------------------
+st.subheader("📋 Weersverwachting – rest van vandaag")
+
+st.dataframe(
+    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
+    hide_index=True
+)
+
+# -------------------------------------------------
+# Footer
+# -------------------------------------------------
+st.caption(
+    f"📍 {plaats} • 🕒 {start_dt.strftime('%H:%M')}–{eind_dt.strftime('%H:%M')} • "
+    f"⏱️ {duur_min} min"
+)
