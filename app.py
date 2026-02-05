@@ -212,7 +212,6 @@ kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
 # -------------------------------------------------
 # HERO SCORE CARD (ENIGE SCORE-RENDER)
 # -------------------------------------------------
-st.markdown("<div class='card hero'>", unsafe_allow_html=True)
 
 st.markdown(
     f"<div class='score'>{kleur} {score}</div>",
