@@ -15,7 +15,7 @@ st.set_page_config(
 st.title("🏃‍♂️ Hardloop kledingadvies")
 
 # -------------------------------------------------
-# Emoji helper
+# Helpers: emoji + betekenis
 # -------------------------------------------------
 def weer_emoji(code, nacht=False):
     if code == 0:
@@ -116,6 +116,8 @@ lat, lon = loc["latitude"], loc["longitude"]
 # -------------------------------------------------
 # Run instellingen
 # -------------------------------------------------
+st.subheader("🏃‍♂️ Jouw run")
+
 duur_min = st.slider("Duur van de run (minuten)", 10, 180, 60, step=5)
 starttijd = st.time_input("Starttijd", value=time(18, 0))
 
@@ -163,10 +165,17 @@ df = pd.DataFrame({
 now = datetime.now().replace(minute=0, second=0)
 df = df[(df["tijd"].dt.date == today) & (df["tijd"] >= now)].copy()
 
+# -------------------------------------------------
+# Looptijd-overlap
+# -------------------------------------------------
 def overlapt(uur_start, start, einde):
     return uur_start < einde and (uur_start + timedelta(hours=1)) > start
 
 df["looptijd"] = df["tijd"].apply(lambda t: overlapt(t, start_dt, eind_dt))
+
+# -------------------------------------------------
+# Emoji + betekenis
+# -------------------------------------------------
 df["nacht"] = df["tijd"] >= sunset
 df["emoji"] = df.apply(lambda r: weer_emoji(r["weer_code"], r["nacht"]), axis=1)
 df["weer"] = df.apply(
@@ -177,7 +186,7 @@ df["weer"] = df.apply(
 # -------------------------------------------------
 # Score
 # -------------------------------------------------
-def score(feels, rain, wind):
+def loop_score(feels, rain, wind):
     s = 10
     if feels < 0: s -= 3
     elif feels < 5: s -= 2
@@ -188,10 +197,90 @@ def score(feels, rain, wind):
     elif wind > 15: s -= 1
     return max(1, min(10, s))
 
-df["score"] = df.apply(lambda r: score(r["gevoel"], r["neerslag"], r["wind"]), axis=1)
+df["score"] = df.apply(lambda r: loop_score(r["gevoel"], r["neerslag"], r["wind"]), axis=1)
 
 # -------------------------------------------------
-# Overzicht (grafiek/tabel)
+# Midden van de run (voor advies)
+# -------------------------------------------------
+mid_row = df.iloc[(df["tijd"] - mid_dt).abs().argsort().iloc[0]]
+
+gevoel = mid_row["gevoel"]
+neerslag = mid_row["neerslag"]
+wind = mid_row["wind"]
+score = int(mid_row["score"])
+
+# -------------------------------------------------
+# ⭐ Score
+# -------------------------------------------------
+st.subheader("⭐ Loop-geschiktheid (midden van de run)")
+
+kleur = "🟥" if score <= 4 else "🟧" if score <= 6 else "🟩"
+
+st.markdown(
+    f"<div style='text-align:center; font-size:64px; font-weight:bold;'>{kleur} {score}</div>",
+    unsafe_allow_html=True
+)
+
+st.write(f"🌡️ Gevoelstemperatuur: **{gevoel:.1f} °C**")
+st.write(f"🌧️ Neerslag: **{neerslag:.1f} mm/u**")
+st.write(f"💨 Wind: **{wind:.0f} km/u**")
+st.write(f"🌤️ Weer: **{mid_row['weer']}**")
+
+# -------------------------------------------------
+# 👕 KLEDINGADVIES (EXPLICIET AANWEZIG)
+# -------------------------------------------------
+st.subheader("👕 Kledingadvies (midden van de run)")
+
+advies = {}
+
+advies["Thermisch ondershirt"] = (
+    "Ja (extra laag)" if (gevoel <= -2 or (gevoel <= 0 and wind >= 15)) else "Nee"
+)
+
+if gevoel <= 2:
+    advies["Shirt"] = "Long sleeve"
+elif 3 <= gevoel <= 8:
+    advies["Shirt"] = "Long sleeve (of korte mouw bij hoge intensiteit)"
+elif 9 <= gevoel <= 14:
+    advies["Shirt"] = "Korte mouw"
+else:
+    advies["Shirt"] = "Singlet"
+
+if gevoel <= 0:
+    advies["Broek"] = "Winter tight"
+elif 1 <= gevoel <= 7:
+    advies["Broek"] = "Long tight"
+else:
+    advies["Broek"] = "Korte broek"
+
+if gevoel <= -3:
+    advies["Handen"] = "Wanten"
+elif -2 <= gevoel <= 4:
+    advies["Handen"] = "Dunne handschoenen"
+else:
+    advies["Handen"] = "Geen"
+
+if neerslag > 1:
+    advies["Jack"] = "Regenjas"
+elif gevoel <= -5:
+    advies["Jack"] = "Dikkere jas"
+elif wind >= 15 and gevoel <= 5:
+    advies["Jack"] = "Licht jack"
+else:
+    advies["Jack"] = "Geen"
+
+if gevoel <= 0:
+    advies["Hoofd"] = "Muts"
+elif neerslag > 0:
+    advies["Hoofd"] = "Pet"
+else:
+    advies["Hoofd"] = "Geen"
+
+for k, v in advies.items():
+    st.write(f"**{k}:** {v}")
+
+# -------------------------------------------------
+# 📊 Weersverwachting – rest van vandaag
 # -------------------------------------------------
 st.subheader("📊 Weersverwachting – rest van vandaag")
 
