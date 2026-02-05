@@ -122,7 +122,6 @@ st.caption("Slimme kledingkeuze op basis van weer en looptijd")
 # -------------------------------------------------
 # Locatie & run
 # -------------------------------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
 
 plaats = st.text_input("Stad / plaats", value="Lelystad")
@@ -132,7 +131,6 @@ with col1:
 with col2:
     duur_min = st.slider("Duur (min)", 10, 180, 60, step=5)
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 if not plaats:
     st.stop()
@@ -224,12 +222,10 @@ st.markdown(
     f"</div>",
     unsafe_allow_html=True
 )
-st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # KLEDINGADVIES
 # -------------------------------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("<div class='section-title'>👕 Kledingadvies</div>", unsafe_allow_html=True)
 
 gevoel = mid_row["gevoel"]
@@ -260,12 +256,10 @@ for i, (k, v) in enumerate(advies.items()):
             unsafe_allow_html=True
         )
 
-st.markdown("</div>", unsafe_allow_html=True)
 
 # -------------------------------------------------
 # WEEROVERZICHT
 # -------------------------------------------------
-st.markdown("<div class='card'>", unsafe_allow_html=True)
 st.markdown("<div class='section-title'>📊 Weersverwachting (rest van vandaag)</div>", unsafe_allow_html=True)
 
 df_show = df.copy()
@@ -282,4 +276,3 @@ st.dataframe(
     hide_index=True
 )
 
-st.markdown("</div>", unsafe_allow_html=True)
