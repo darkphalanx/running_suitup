@@ -268,7 +268,7 @@ kleding = {
     ),
     "Jack": (
         "Regenjas" if regen > 1
-        else "Licht jack" if wind >= 15 and gevoel <= 5
+        else "Normaal jack" if wind >= 15 and gevoel <= 5
         else "Geen"
     ),
     "Handen": (
