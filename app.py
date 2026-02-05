@@ -1,7 +1,7 @@
 import streamlit as st
 import requests
 from datetime import datetime, time, timedelta
-import matplotlib.pyplot as plt
+import pandas as pd
 
 # -------------------------------------------------
 # Page config
@@ -27,8 +27,8 @@ geo_url = (
     "https://geocoding-api.open-meteo.com/v1/search"
     f"?name={plaats}&count=1&language=nl&format=json"
 )
-geo = requests.get(geo_url, timeout=10).json()
 
+geo = requests.get(geo_url, timeout=10).json()
 if "results" not in geo:
     st.error("❌ Locatie niet gevonden")
     st.stop()
@@ -51,7 +51,7 @@ start_dt = datetime.combine(today, starttijd)
 eind_dt = start_dt + timedelta(minutes=duur_min)
 
 # -------------------------------------------------
-# Weer forecast ophalen (hourly)
+# Weer forecast ophalen
 # -------------------------------------------------
 weather_url = (
     "https://api.open-meteo.com/v1/forecast"
@@ -68,19 +68,27 @@ feels = weather["apparent_temperature"]
 rain = weather["precipitation"]
 wind = weather["wind_speed_10m"]
 
-# -------------------------------------------------
-# Filter: resterende uren vandaag
-# -------------------------------------------------
-now = datetime.now()
-indices_today = [
-    i for i, t in enumerate(times)
-    if t.date() == today and t >= now.replace(minute=0, second=0)
-]
+now = datetime.now().replace(minute=0, second=0)
+
+rows = []
+for i, t in enumerate(times):
+    if t.date() == today and t >= now:
+        rows.append({
+            "tijd": t,
+            "uur": t.strftime("%H:%M"),
+            "temperatuur": temps[i],
+            "gevoel": feels[i],
+            "neerslag": rain[i],
+            "wind": wind[i],
+            "looptijd": start_dt <= t <= eind_dt
+        })
+
+df = pd.DataFrame(rows)
 
 # -------------------------------------------------
 # Score functie (1–10)
 # -------------------------------------------------
-def running_score(temp, feels_like, rain_mm, wind_kmh):
+def running_score(feels_like, rain_mm, wind_kmh):
     score = 10
 
     if feels_like < 0:
@@ -102,25 +110,21 @@ def running_score(temp, feels_like, rain_mm, wind_kmh):
 
     return max(1, min(10, score))
 
-scores = [
-    running_score(temps[i], feels[i], rain[i], wind[i])
-    for i in indices_today
-]
+df["score"] = df.apply(
+    lambda r: running_score(r["gevoel"], r["neerslag"], r["wind"]),
+    axis=1
+)
 
 # -------------------------------------------------
 # Weer op starttijd
 # -------------------------------------------------
-closest_idx = min(
-    indices_today,
-    key=lambda i: abs(times[i] - start_dt)
-)
+closest = df.iloc[(df["tijd"] - start_dt).abs().argsort().iloc[0]]
 
 st.subheader("🌦️ Weer tijdens jouw run")
-
-st.write(f"🌡️ Temperatuur: **{temps[closest_idx]:.1f} °C**")
-st.write(f"🥶 Gevoelstemperatuur: **{feels[closest_idx]:.1f} °C**")
-st.write(f"🌧️ Neerslag: **{rain[closest_idx]:.1f} mm/u**")
-st.write(f"💨 Wind: **{wind[closest_idx]:.0f} km/u**")
+st.write(f"🌡️ Temperatuur: **{closest['temperatuur']:.1f} °C**")
+st.write(f"🥶 Gevoelstemperatuur: **{closest['gevoel']:.1f} °C**")
+st.write(f"🌧️ Neerslag: **{closest['neerslag']:.1f} mm/u**")
+st.write(f"💨 Wind: **{closest['wind']:.0f} km/u**")
 
 # -------------------------------------------------
 # Kledingadvies
@@ -129,42 +133,36 @@ st.subheader("👕 Kledingadvies")
 
 advies = []
 
-if feels[closest_idx] <= 5:
+if closest["gevoel"] <= 5:
     advies += ["👕 Thermisch ondershirt (lange mouw)", "👖 Lange hardlooptight"]
-elif feels[closest_idx] <= 12:
+elif closest["gevoel"] <= 12:
     advies += ["👕 Longsleeve", "👖 Lange hardlooptight"]
 else:
     advies += ["👕 Shirt korte mouw", "🩳 Korte broek"]
 
-if feels[closest_idx] <= 3 or wind[closest_idx] >= 20:
+if closest["gevoel"] <= 3 or closest["wind"] >= 20:
     advies += ["🧤 Dunne handschoenen", "🧣 Buff of dunne muts"]
 
-if wind[closest_idx] >= 15:
+if closest["wind"] >= 15:
     advies.append("🧥 Licht winddicht hardloopjack")
 
 for a in advies:
     st.write(a)
 
 # -------------------------------------------------
-# Grafiek
+# Grafiek (Streamlit native)
 # -------------------------------------------------
 st.subheader("📊 Weersverwachting rest van vandaag")
 
-hours = [times[i].hour for i in indices_today]
+chart_df = df.set_index("uur")[["score"]]
+st.line_chart(chart_df)
 
-fig, ax1 = plt.subplots()
-
-ax1.plot(hours, scores)
-ax1.set_ylim(0, 10)
-ax1.set_ylabel("Loop-score (1–10)")
-ax1.set_xlabel("Uur")
-
-# Highlight loop-uren
-for i, idx in enumerate(indices_today):
-    if start_dt <= times[idx] <= eind_dt:
-        ax1.axvspan(hours[i] - 0.5, hours[i] + 0.5)
-
-st.pyplot(fig)
+# Highlight looptijden
+st.markdown("**🟩 Gemarkeerde uren = jouw looptijd**")
+st.dataframe(
+    df[["uur", "score", "looptijd"]],
+    hide_index=True
+)
 
 # -------------------------------------------------
 # Footer
