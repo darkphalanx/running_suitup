@@ -1,7 +1,8 @@
 import streamlit as st
 import requests
-from datetime import datetime, time, timedelta
 import pandas as pd
+import altair as alt
+from datetime import datetime, time, timedelta
 
 # -------------------------------------------------
 # Page config
@@ -51,23 +52,18 @@ start_dt = datetime.combine(today, starttijd)
 eind_dt = start_dt + timedelta(minutes=duur_min)
 
 # -------------------------------------------------
-# Weer forecast ophalen
+# Weer forecast ophalen (hourly)
 # -------------------------------------------------
 weather_url = (
     "https://api.open-meteo.com/v1/forecast"
     f"?latitude={lat}&longitude={lon}"
-    "&hourly=temperature_2m,apparent_temperature,precipitation,wind_speed_10m"
+    "&hourly=temperature_2m,apparent_temperature,precipitation,weathercode"
     "&timezone=auto"
 )
 
-weather = requests.get(weather_url, timeout=10).json()["hourly"]
+hourly = requests.get(weather_url, timeout=10).json()["hourly"]
 
-times = [datetime.fromisoformat(t) for t in weather["time"]]
-temps = weather["temperature_2m"]
-feels = weather["apparent_temperature"]
-rain = weather["precipitation"]
-wind = weather["wind_speed_10m"]
-
+times = [datetime.fromisoformat(t) for t in hourly["time"]]
 now = datetime.now().replace(minute=0, second=0)
 
 rows = []
@@ -76,44 +72,53 @@ for i, t in enumerate(times):
         rows.append({
             "tijd": t,
             "uur": t.strftime("%H:%M"),
-            "temperatuur": temps[i],
-            "gevoel": feels[i],
-            "neerslag": rain[i],
-            "wind": wind[i],
+            "temperatuur": hourly["temperature_2m"][i],
+            "gevoel": hourly["apparent_temperature"][i],
+            "neerslag": hourly["precipitation"][i],
+            "weer_code": hourly["weathercode"][i],
             "looptijd": start_dt <= t <= eind_dt
         })
 
 df = pd.DataFrame(rows)
 
 # -------------------------------------------------
-# Score functie (1–10)
+# Weer interpretatie
 # -------------------------------------------------
-def running_score(feels_like, rain_mm, wind_kmh):
+def weer_label(code):
+    if code in [0]:
+        return "Zonnig ☀️"
+    if code in [1, 2]:
+        return "Licht bewolkt ⛅"
+    if code in [3]:
+        return "Bewolkt ☁️"
+    if code in [45, 48]:
+        return "Mist 🌫️"
+    if code in [51, 53, 55, 61, 63, 65]:
+        return "Regen 🌧️"
+    if code in [71, 73, 75]:
+        return "Sneeuw ❄️"
+    return "Onbekend"
+
+df["weer"] = df["weer_code"].apply(weer_label)
+
+# -------------------------------------------------
+# Score functie
+# -------------------------------------------------
+def running_score(feels, rain):
     score = 10
-
-    if feels_like < 0:
+    if feels < 0:
         score -= 3
-    elif feels_like < 5:
+    elif feels < 5:
         score -= 2
-    elif feels_like > 20:
+    elif feels > 20:
         score -= 2
-
-    if rain_mm > 1:
+    if rain > 1:
         score -= 3
-    elif rain_mm > 0:
+    elif rain > 0:
         score -= 1
-
-    if wind_kmh > 25:
-        score -= 2
-    elif wind_kmh > 15:
-        score -= 1
-
     return max(1, min(10, score))
 
-df["score"] = df.apply(
-    lambda r: running_score(r["gevoel"], r["neerslag"], r["wind"]),
-    axis=1
-)
+df["score"] = df.apply(lambda r: running_score(r["gevoel"], r["neerslag"]), axis=1)
 
 # -------------------------------------------------
 # Weer op starttijd
@@ -124,43 +129,58 @@ st.subheader("🌦️ Weer tijdens jouw run")
 st.write(f"🌡️ Temperatuur: **{closest['temperatuur']:.1f} °C**")
 st.write(f"🥶 Gevoelstemperatuur: **{closest['gevoel']:.1f} °C**")
 st.write(f"🌧️ Neerslag: **{closest['neerslag']:.1f} mm/u**")
-st.write(f"💨 Wind: **{closest['wind']:.0f} km/u**")
+st.write(f"🌤️ Weer: **{closest['weer']}**")
 
 # -------------------------------------------------
-# Kledingadvies
+# Grafiek
 # -------------------------------------------------
-st.subheader("👕 Kledingadvies")
+st.subheader("📊 Weersverwachting – rest van vandaag")
 
-advies = []
+base = alt.Chart(df).encode(
+    x=alt.X("uur:N", title="Uur")
+)
 
-if closest["gevoel"] <= 5:
-    advies += ["👕 Thermisch ondershirt (lange mouw)", "👖 Lange hardlooptight"]
-elif closest["gevoel"] <= 12:
-    advies += ["👕 Longsleeve", "👖 Lange hardlooptight"]
-else:
-    advies += ["👕 Shirt korte mouw", "🩳 Korte broek"]
+# Achtergrond highlight looptijd
+highlight = base.mark_rect(opacity=0.15).encode(
+    x="uur:N",
+    color=alt.condition(
+        alt.datum.looptijd,
+        alt.value("#8BC34A"),
+        alt.value("transparent")
+    )
+)
 
-if closest["gevoel"] <= 3 or closest["wind"] >= 20:
-    advies += ["🧤 Dunne handschoenen", "🧣 Buff of dunne muts"]
+temp_line = base.mark_line(color="red").encode(
+    y=alt.Y("temperatuur:Q", title="Temperatuur (°C)"),
+    tooltip=["uur", "temperatuur", "gevoel", "neerslag", "weer", "score"]
+)
 
-if closest["wind"] >= 15:
-    advies.append("🧥 Licht winddicht hardloopjack")
+feel_line = base.mark_line(color="blue", strokeDash=[4,2]).encode(
+    y="gevoel:Q"
+)
 
-for a in advies:
-    st.write(a)
+rain_bar = base.mark_bar(color="steelblue", opacity=0.4).encode(
+    y=alt.Y("neerslag:Q", title="Neerslag (mm)")
+)
+
+chart = alt.layer(
+    highlight,
+    rain_bar,
+    temp_line,
+    feel_line
+).resolve_scale(
+    y="independent"
+)
+
+st.altair_chart(chart, use_container_width=True)
 
 # -------------------------------------------------
-# Grafiek (Streamlit native)
+# Tabel (extra duidelijkheid)
 # -------------------------------------------------
-st.subheader("📊 Weersverwachting rest van vandaag")
+st.subheader("📋 Overzicht per uur")
 
-chart_df = df.set_index("uur")[["score"]]
-st.line_chart(chart_df)
-
-# Highlight looptijden
-st.markdown("**🟩 Gemarkeerde uren = jouw looptijd**")
 st.dataframe(
-    df[["uur", "score", "looptijd"]],
+    df[["uur", "weer", "temperatuur", "gevoel", "neerslag", "score", "looptijd"]],
     hide_index=True
 )
 
