@@ -75,6 +75,14 @@ now = datetime.now().replace(minute=0, second=0)
 rows = []
 for i, t in enumerate(times):
     if t.date() == today and t >= now:
+        uur_start = t
+        uur_einde = t + timedelta(hours=1)
+
+        looptijd = (
+            uur_start < eind_dt and
+            uur_einde > start_dt
+        )
+
         rows.append({
             "tijd": t,
             "uur": t.strftime("%H:%M"),
@@ -83,8 +91,9 @@ for i, t in enumerate(times):
             "neerslag": hourly["precipitation"][i],
             "weer_code": hourly["weathercode"][i],
             "nacht": t >= sunset,
-            "looptijd": start_dt <= t <= eind_dt
+            "looptijd": looptijd
         })
+
 
 df = pd.DataFrame(rows)
 
