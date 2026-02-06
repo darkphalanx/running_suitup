@@ -288,50 +288,58 @@ run_na_zonsondergang = eind_dt >= sunset
 # -----------------------------
 # Kleding (outfit)
 # -----------------------------
+# Hoofd
+if gevoel <= 0:
+    hoofd = "Muts"
+elif is_zonnig or regen > 0:
+    hoofd = "Pet"
+else:
+    hoofd = "Geen"
+
+# Thermisch ondershirt
+thermisch_ondershirt = (
+    gevoel <= -2 or (gevoel <= 0 and wind >= 15)
+)
+
+# Shirt
+if gevoel > 18:
+    shirt = "Singlet"
+elif gevoel > 12:
+    shirt = "Korte mouw"
+else:
+    shirt = "Long sleeve"
+
+# Broek
+if gevoel > 10:
+    broek = "Korte broek"
+elif gevoel > -2:
+    broek = "Long tight"
+else:
+    broek = "Winter tight"
+
+# Jack
+if regen > 1:
+    jack = "Regenjas"
+elif wind >= 15 and gevoel <= 6:
+    jack = "Licht jack"
+else:
+    jack = "Geen"
+
+# Handen
+if gevoel < 0:
+    handen = "Wanten"
+elif gevoel <= 5:
+    handen = "Dunne handschoenen"
+else:
+    handen = "Geen"
+
 kleding = {
-    "Hoofd": (
-        if gevoel <= 0:
-            hoofd = "Muts"
-        elif is_zonnig or regen > 0:
-            hoofd = "Pet"
-        else:
-            hoofd = "Geen"
-    ),
-    "Thermisch ondershirt": (
-        gevoel <= -2 or (gevoel <= 0 and wind >= 15)
-    ),
-    "Shirt": (
-        if gevoel > 18:
-            shirt = "Singlet"
-        elif gevoel > 12:
-            shirt = "Korte mouw"
-        else:
-            shirt = "Long sleeve"
-    ),
-    "Broek": (
-        if gevoel > 10:
-            broek = "Korte broek"
-        elif gevoel > -2:
-            broek = "Long tight"
-        else:
-            broek = "Winter tight"
-    ),
-    "Jack": (
-        if regen > 1:
-            jack = "Regenjas"
-        elif wind >= 15 and gevoel <= 6:
-            jack = "Licht jack"
-        else:
-            jack = "Geen"
-    ),
-    "Handen": (
-        if gevoel < 0:
-            handen = "Wanten"
-        elif gevoel <= 5:
-            handen = "Dunne handschoenen"
-        else:
-            handen = "Geen"
-    ),
+    "Hoofd": hoofd,
+    "Thermisch ondershirt": "Ja" if thermisch_ondershirt else "Nee",
+    "Shirt": shirt,
+    "Broek": broek,
+    "Jack": jack,
+    "Handen": handen,
 }
 
 waarom = {
