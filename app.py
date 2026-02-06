@@ -295,7 +295,7 @@ kleding = {
         else "Geen"
     ),
     "Thermisch ondershirt": (
-        "Ja" if (gevoel <= -2 or (gevoel <= 0 and wind >= 15))
+        "Ja" if (gevoel <= -9 or (gevoel <= -6 and wind >= 15))
         else "Nee"
     ),
     "Shirt": (
