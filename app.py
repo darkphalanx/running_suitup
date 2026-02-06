@@ -297,9 +297,15 @@ else:
     hoofd = "Geen"
 
 # Thermisch ondershirt
-thermisch_ondershirt = (
-    gevoel <= -2 or (gevoel <= 0 and wind >= 15)
-)
+thermisch_ondershirt = False
+
+if gevoel <= -2:
+    thermisch_ondershirt = True
+elif gevoel <= 0 and wind >= 15:
+    thermisch_ondershirt = True
+elif gevoel <= 2 and jack != "Geen":
+    thermisch_ondershirt = True
+
 
 # Shirt
 if gevoel > 18:
