@@ -97,6 +97,12 @@ def score_calc(feels, rain, wind):
     elif wind > 15: s -= 1
     return max(1, min(10, s))
 
+def dichtstbijzijnde_tijd(interval_min=5):
+    now = datetime.now()
+    minuten = (now.minute + interval_min // 2) // interval_min * interval_min
+    afgerond = now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minuten)
+    return afgerond.time()
+
 # =================================================
 # HEADER
 # =================================================
@@ -106,7 +112,6 @@ st.caption("Slimme kledingkeuze op basis van weer en looptijd")
 # =================================================
 # INPUT
 # =================================================
-st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
 st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
 
 zoekterm = st.text_input("Plaats (typ minimaal 2 letters)", "Lelystad")
@@ -145,7 +150,10 @@ if len(zoekterm) >= 2:
 
 c1, c2 = st.columns(2)
 with c1:
-    starttijd = st.time_input("Starttijd", time(18,0))
+    starttijd = st.time_input(
+    "Starttijd",
+    value=dichtstbijzijnde_tijd(5)
+)
 with c2:
     duur_min = st.slider("Duur (min)", 10, 180, 60, 5)
 
