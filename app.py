@@ -290,33 +290,47 @@ run_na_zonsondergang = eind_dt >= sunset
 # -----------------------------
 kleding = {
     "Hoofd": (
-        "Muts" if gevoel <= 0
-        else "Pet" if (regen > 0 or is_zonnig)
-        else "Geen"
+        if gevoel <= 0:
+            hoofd = "Muts"
+        elif is_zonnig or regen > 0:
+            hoofd = "Pet"
+        else:
+            hoofd = "Geen"
     ),
     "Thermisch ondershirt": (
-        "Ja" if (gevoel <= -9 or (gevoel <= -6 and wind >= 15))
-        else "Nee"
+        gevoel <= -2 or (gevoel <= 0 and wind >= 15)
     ),
     "Shirt": (
-        "Long sleeve" if gevoel <= 8
-        else "Korte mouw" if gevoel <= 14
-        else "Singlet"
+        if gevoel > 18:
+            shirt = "Singlet"
+        elif gevoel > 12:
+            shirt = "Korte mouw"
+        else:
+            shirt = "Long sleeve"
     ),
     "Broek": (
-        "Winter tight" if gevoel <= 0
-        else "Long tight" if gevoel <= 7
-        else "Korte broek"
+        if gevoel > 10:
+            broek = "Korte broek"
+        elif gevoel > -2:
+            broek = "Long tight"
+        else:
+            broek = "Winter tight"
     ),
     "Jack": (
-        "Regenjas" if regen > 1
-        else "Normaal jack" if wind >= 15 and gevoel <= 5
-        else "Geen"
+        if regen > 1:
+            jack = "Regenjas"
+        elif wind >= 15 and gevoel <= 6:
+            jack = "Licht jack"
+        else:
+            jack = "Geen"
     ),
     "Handen": (
-        "Wanten" if gevoel <= -3
-        else "Dunne handschoenen" if gevoel <= 4
-        else "Geen"
+        if gevoel < 0:
+            handen = "Wanten"
+        elif gevoel <= 5:
+            handen = "Dunne handschoenen"
+        else:
+            handen = "Geen"
     ),
 }
 
