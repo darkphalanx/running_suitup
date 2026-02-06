@@ -2,6 +2,7 @@ import streamlit as st
 import requests
 import pandas as pd
 from datetime import datetime, time, timedelta
+from zoneinfo import ZoneInfo
 
 # =================================================
 # PAGE CONFIG
@@ -97,8 +98,8 @@ def score_calc(feels, rain, wind):
     elif wind > 15: s -= 1
     return max(1, min(10, s))
 
-def dichtstbijzijnde_tijd(interval_min=5):
-    now = datetime.now()
+def dichtstbijzijnde_tijd(interval_min=5, tz=None):
+    now = datetime.now(tz)
     minuten = (now.minute + interval_min // 2) // interval_min * interval_min
     afgerond = now.replace(minute=0, second=0, microsecond=0) + timedelta(minutes=minuten)
     return afgerond.time()
@@ -152,8 +153,9 @@ c1, c2 = st.columns(2)
 with c1:
     starttijd = st.time_input(
     "Starttijd",
-    value=dichtstbijzijnde_tijd(5)
+    value=dichtstbijzijnde_tijd(5, tz)
 )
+
 with c2:
     duur_min = st.slider("Duur (min)", 10, 180, 60, 5)
 
@@ -170,7 +172,11 @@ if not lat or not lon:
 # TIJD
 # =================================================
 now = datetime.now().replace(minute=0, second=0, microsecond=0)
-start_dt = datetime.combine(now.date(), starttijd)
+start_dt = datetime.combine(
+    now.date(),
+    starttijd,
+    tzinfo=tz
+)
 eind_dt = start_dt + timedelta(minutes=duur_min)
 mid_dt = start_dt + (eind_dt - start_dt)/2
 end_24h = now + timedelta(hours=24)
@@ -188,7 +194,7 @@ weather = requests.get(
     timeout=10
 ).json()
 
-sunset = datetime.fromisoformat(weather["daily"]["sunset"][0])
+sunset = datetime.fromisoformat(weather["daily"]["sunset"][0]).astimezone(tz)
 
 df = pd.DataFrame({
     "tijd":[datetime.fromisoformat(t) for t in weather["hourly"]["time"]],
