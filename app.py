@@ -107,7 +107,41 @@ st.caption("Slimme kledingkeuze op basis van weer en looptijd")
 # INPUT
 # =================================================
 st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
-plaats = st.text_input("Plaats", "Lelystad")
+st.markdown("<div class='section-title'>📍 Locatie & run</div>", unsafe_allow_html=True)
+
+zoekterm = st.text_input("Plaats (typ minimaal 2 letters)", "Lelystad")
+
+plaats = None
+lat = lon = None
+
+if len(zoekterm) >= 2:
+    geo = requests.get(
+        "https://geocoding-api.open-meteo.com/v1/search",
+        params={
+            "name": zoekterm,
+            "count": 5,
+            "language": "nl",
+            "format": "json"
+        },
+        timeout=10
+    ).json()
+
+    resultaten = geo.get("results", [])
+
+    if resultaten:
+        opties = [
+            f"{r['name']}, {r.get('admin1','')}, {r['country']}".replace(" ,", "")
+            for r in resultaten
+        ]
+
+        keuze = st.selectbox("Kies een plaats", opties)
+
+        gekozen = resultaten[opties.index(keuze)]
+        plaats = keuze
+        lat = gekozen["latitude"]
+        lon = gekozen["longitude"]
+    else:
+        st.info("Geen locaties gevonden.")
 
 c1, c2 = st.columns(2)
 with c1:
@@ -121,14 +155,8 @@ if not plaats:
 # =================================================
 # GEO
 # =================================================
-geo = requests.get(
-    "https://geocoding-api.open-meteo.com/v1/search",
-    params={"name":plaats,"count":1,"language":"nl","format":"json"},
-    timeout=10
-).json()
-
-loc = geo["results"][0]
-lat, lon = loc["latitude"], loc["longitude"]
+if not lat or not lon:
+    st.stop()
 
 # =================================================
 # TIJD
